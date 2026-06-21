@@ -27,7 +27,7 @@ export async function buildApp(overrides = {}) {
     ...(overrides.silent ? { logger: false } : {}),
   });
 
-  await app.register(cors, { origin: config.corsOrigin });
+  await app.register(cors, { origin: corsOriginOption(config.corsOrigin) });
 
   await app.register(rateLimit, {
     max: config.rateLimitMax,
@@ -51,10 +51,42 @@ export async function buildApp(overrides = {}) {
     });
   });
 
+  // (CORS matcher helper is defined at module scope below.)
+
   await app.register(healthRoutes);
   await app.register(productsRoutes);
   await app.register(simulateRoutes);
   await app.register(benchmarkRoutes);
 
   return app;
+}
+
+/**
+ * Build the value passed to @fastify/cors `origin`.
+ *  - '*'            -> reflect any origin (dev / open demo)
+ *  - string[]       -> a function that allows exact matches (trailing slash
+ *                      tolerant) plus `*.domain` wildcard entries.
+ * Requests with no Origin header (curl, health checks, same-origin) are allowed.
+ */
+function corsOriginOption(allowed) {
+  if (allowed === '*') return true;
+
+  return (origin, cb) => {
+    if (!origin) return cb(null, true);
+    const normalized = origin.replace(/\/+$/, '');
+
+    const ok = allowed.some((entry) => {
+      if (entry.startsWith('*.')) {
+        const suffix = entry.slice(1); // "*.vercel.app" -> ".vercel.app"
+        try {
+          return new URL(normalized).hostname.endsWith(suffix);
+        } catch {
+          return false;
+        }
+      }
+      return normalized === entry;
+    });
+
+    cb(ok ? null : new Error(`Origin not allowed by CORS: ${origin}`), ok);
+  };
 }

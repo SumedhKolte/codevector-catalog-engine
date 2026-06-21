@@ -11,6 +11,19 @@ function required(name) {
   return value;
 }
 
+// '*' (allow all) or a normalised array of allowed origins. Trailing slashes are
+// stripped so a value like "https://app.vercel.app/" still matches the browser's
+// slash-less Origin header. Wildcard entries (`*.vercel.app`) are kept as-is and
+// matched by host suffix in app.js.
+function parseCorsOrigin(raw) {
+  const val = (raw ?? '*').trim();
+  if (val === '' || val === '*') return '*';
+  return val
+    .split(',')
+    .map((s) => s.trim().replace(/\/+$/, ''))
+    .filter(Boolean);
+}
+
 export const config = {
   databaseUrl: required('DATABASE_URL'),
   // Hosted Postgres (Supabase, Neon, Render) terminates TLS. Default to on.
@@ -20,10 +33,9 @@ export const config = {
   host: process.env.HOST ?? '0.0.0.0',
 
   // CORS: '*' for local dev, or a comma-separated allowlist in production.
-  corsOrigin:
-    (process.env.CORS_ORIGIN ?? '*') === '*'
-      ? '*'
-      : (process.env.CORS_ORIGIN ?? '').split(',').map((s) => s.trim()),
+  // Entries are normalised (trailing slashes stripped). A wildcard entry like
+  // `*.vercel.app` matches any subdomain (handy for Vercel preview deploys).
+  corsOrigin: parseCorsOrigin(process.env.CORS_ORIGIN),
 
   rateLimitMax: Number(process.env.RATE_LIMIT_MAX ?? 100),
   rateLimitWindow: process.env.RATE_LIMIT_WINDOW ?? '1 minute',
