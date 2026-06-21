@@ -1,0 +1,30 @@
+# Render Blueprint — provisions the Fastify backend as a free Web Service.
+# Docs: https://render.com/docs/blueprint-spec
+services:
+  - type: web
+    name: product-catalog-api
+    runtime: node
+    plan: free
+    region: oregon
+    rootDir: backend
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /health
+    envVars:
+      # Set the secret value in the Render dashboard (Environment tab) — never commit it.
+      - key: DATABASE_URL
+        sync: false
+      - key: PGSSL
+        value: "true"
+      - key: NODE_ENV
+        value: production
+      - key: LOG_LEVEL
+        value: info
+      # Render injects PORT automatically; the app reads process.env.PORT.
+      # Set this to your Vercel URL after the frontend is deployed.
+      - key: CORS_ORIGIN
+        sync: false
+      - key: RATE_LIMIT_MAX
+        value: "100"
+      - key: RATE_LIMIT_WINDOW
+        value: "1 minute"
